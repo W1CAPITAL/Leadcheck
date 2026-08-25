@@ -39,6 +39,7 @@ import {
 import { openPrelaudoPrint } from "./lib/pdf-prelaudo";
 import { scoreLead, tierLabel } from "./lib/score";
 import { estimateSavingsVsBacen, type SavingsEstimate } from "./lib/simulate";
+import { buildRevisionalAnalysis, type RevisionalAnalysis } from "./lib/revisional-analysis";
 import { buildSpecialistMessage, clientWaLink } from "./lib/whatsapp-templates";
 import { SGS_VEICULOS_PF } from "./lib/sgs-catalog";
 import {
@@ -338,18 +339,30 @@ function Funnel({ onBackoffice: _onBackoffice }: { onBackoffice: () => void }) {
         ) : null}
 
         {!done && step === 3 ? (
-          <StepFlags
-            value={lead.flags}
-            onChange={(flags) => setLead((c) => ({ ...c, flags }))}
-            onContinue={() => setStep(4)}
+          <StepUpload
+            value={lead}
+            onChange={(file) => setLead((c) => ({ ...c, ...file }))}
+            onContinue={() => {
+              // Análise automática — o app define o que dá para fazer
+              const analysis = buildRevisionalAnalysis({
+                nome: lead.nome,
+                parcela: lead.parcela,
+                contractDate: lead.contractDate,
+                bacen,
+                hasContractFile: !!lead.fileName,
+              });
+              setLead((c) => ({ ...c, flags: analysis.suggestedFlags }));
+              setStep(4);
+            }}
           />
         ) : null}
 
         {!done && step === 4 ? (
-          <StepUpload
-            value={lead}
-            onChange={(file) => setLead((c) => ({ ...c, ...file }))}
+          <StepAnalysis
+            lead={lead}
+            bacen={bacen}
             onContinue={() => setStep(5)}
+            onBack={() => setStep(3)}
           />
         ) : null}
 
@@ -761,6 +774,160 @@ function StepBacen({
   );
 }
 
+
+function StepAnalysis({
+  lead,
+  bacen,
+  onContinue,
+  onBack,
+}: {
+  lead: Lead;
+  bacen: BacenResult | null;
+  onContinue: () => void;
+  onBack: () => void;
+}) {
+  const analysis = useMemo(
+    () =>
+      buildRevisionalAnalysis({
+        nome: lead.nome,
+        parcela: lead.parcela,
+        contractDate: lead.contractDate,
+        bacen,
+        hasContractFile: !!lead.fileName,
+      }),
+    [lead.nome, lead.parcela, lead.contractDate, lead.fileName, bacen],
+  );
+
+  const levelColor = (level: string) =>
+    level === "alta" ? "var(--forest)" : level === "media" ? "var(--ink)" : "var(--muted)";
+
+  return (
+    <div className="rise-in" style={{ display: "grid", gap: 20 }}>
+      <header style={{ display: "grid", gap: 8 }}>
+        <p style={{ margin: 0, fontSize: 12, fontWeight: 500, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--forest)" }}>
+          Resultado da análise
+        </p>
+        <h1 className="font-display" style={{ margin: 0, fontSize: 26, lineHeight: 1.2, letterSpacing: "-0.03em" }}>
+          {analysis.headline}
+        </h1>
+        <p style={{ margin: 0, fontSize: 14, color: "var(--muted)", lineHeight: 1.45 }}>{analysis.subhead}</p>
+      </header>
+
+      <div
+        style={{
+          borderRadius: "var(--radius-xl)",
+          padding: 16,
+          background: "var(--ok-soft)",
+          boxShadow: "0 0 0 1.5px var(--forest)",
+        }}
+      >
+        <p style={{ margin: 0, fontWeight: 600, fontSize: 15 }}>{analysis.scoreLabel}</p>
+        <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--ink)", lineHeight: 1.4 }}>{analysis.scoreHint}</p>
+      </div>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        {analysis.summaryBullets.map((b) => (
+          <div
+            key={b}
+            style={{
+              fontSize: 13,
+              padding: "10px 12px",
+              borderRadius: "var(--radius-lg)",
+              background: "var(--surface)",
+              boxShadow: "var(--shadow)",
+            }}
+          >
+            {b}
+          </div>
+        ))}
+      </div>
+
+      {analysis.savings && analysis.savings.monthlySavings > 0 ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div style={{ background: "var(--surface)", borderRadius: "var(--radius-lg)", padding: 12, boxShadow: "var(--shadow)" }}>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>Economia mensal estimada</div>
+            <div style={{ marginTop: 4, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+              {formatBRL(analysis.savings.monthlySavings)}
+            </div>
+          </div>
+          <div style={{ background: "var(--surface)", borderRadius: "var(--radius-lg)", padding: 12, boxShadow: "var(--shadow)" }}>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>Em 48 meses (ilustrativo)</div>
+            <div style={{ marginTop: 4, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+              {formatBRL(analysis.savings.totalSavings)}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div>
+        <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--muted)" }}>
+          O que dá para fazer
+        </p>
+        <div style={{ display: "grid", gap: 10 }}>
+          {analysis.opportunities.map((op) => (
+            <div
+              key={op.id}
+              style={{
+                padding: 14,
+                borderRadius: "var(--radius-xl)",
+                background: "var(--surface)",
+                boxShadow: "var(--shadow)",
+                display: "grid",
+                gap: 6,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                <strong style={{ fontSize: 14, lineHeight: 1.3 }}>{op.title}</strong>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: levelColor(op.level),
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {op.level === "alta" ? "Prioridade alta" : op.level === "media" ? "Recomendado" : "Complementar"}
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.4, color: "var(--ink)" }}>{op.pitch}</p>
+              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.4, color: "var(--muted)" }}>{op.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background: "var(--surface)", borderRadius: "var(--radius-xl)", padding: 14, boxShadow: "var(--shadow)" }}>
+        <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--muted)" }}>
+          Próximos passos
+        </p>
+        <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.5, color: "var(--ink)" }}>
+          {analysis.nextSteps.map((s) => (
+            <li key={s} style={{ marginBottom: 4 }}>
+              {s}
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <p style={{ margin: 0, fontSize: 11, color: "var(--muted)", lineHeight: 1.4 }}>
+        Estimativas com base na parcela e na média Bacen. Não substituem perícia com o contrato completo. O pré-laudo aprofunda o diagnóstico com um especialista.
+      </p>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        <Button type="button" size="lg" onClick={onContinue}>
+          Quero o pré-laudo e falar com especialista
+        </Button>
+        <Button type="button" variant="ghost" size="lg" onClick={onBack}>
+          Voltar ao contrato
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+
 function StepFlags({
   value,
   onChange,
@@ -879,7 +1046,7 @@ function StepUpload({
       <header style={{ display: "grid", gap: 8 }}>
         <p style={{ margin: 0, fontSize: 12, fontWeight: 500, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--forest)" }}>Contrato</p>
         <h1 className="font-display" style={{ margin: 0, fontSize: 28, letterSpacing: "-0.03em" }}>
-          Anexe o contrato para o pré-laudo
+          Envie o contrato — a análise é automática
         </h1>
         <p style={{ margin: 0, fontSize: 14, color: "var(--muted)" }}>PDF ou foto. O arquivo fica neste dispositivo.</p>
       </header>
@@ -910,7 +1077,7 @@ function StepUpload({
         }}
       >
         <span style={{ fontWeight: 500, fontSize: 14 }}>Toque para enviar ou solte o arquivo</span>
-        <span style={{ fontSize: 12, color: "var(--muted)" }}>PDF, JPG, PNG · até 8 MB</span>
+        <span style={{ fontSize: 12, color: "var(--muted)" }}>PDF, JPG, PNG · até 8 MB · análise automática na sequência</span>
       </button>
       <input
         id="file-input"
@@ -944,10 +1111,10 @@ function StepUpload({
 
       <div style={{ display: "grid", gap: 8 }}>
         <Button type="button" size="lg" onClick={onContinue} disabled={!value.fileName}>
-          Enviar contrato e gerar Pix
+          Analisar meu contrato
         </Button>
         <Button type="button" variant="ghost" size="lg" onClick={onContinue}>
-          Pular por enquanto
+          Continuar sem arquivo (análise pela parcela)
         </Button>
       </div>
     </div>

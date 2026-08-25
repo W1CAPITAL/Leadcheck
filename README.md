@@ -1,3 +1,7 @@
+# Leadcheck
+
+Funil de captura com **análise automática de revisional** após o contrato (Bacen + parcela + anexo). O cliente não escolhe mais “o que resolver primeiro” — o app apresenta oportunidades e o pré-laudo.
+
 # Parcela Justa
 
 Funil de captação (tripwire) para revisão de juros e quitação de financiamento de veículos.

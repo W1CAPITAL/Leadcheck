@@ -41,7 +41,7 @@ export function buildSpecialistMessage(lead: Lead) {
     `• Média Bacen (veículos PF): ${bacen}`,
     lead.paid ? `• Pré-laudo liberado em ${lead.paidAt ? new Date(lead.paidAt).toLocaleString("pt-BR") : "—"}` : `• Pagamento: pendente`,
     ``,
-    `Quando puder, envie o contrato (PDF ou foto das páginas de taxa e prestamista) para aprofundarmos a análise.`,
+    `A análise automática do Leadcheck já apontou caminhos de revisional. Quando puder, confira o contrato (PDF ou foto das páginas de taxa e prestamista) para aprofundarmos a análise.`,
     ``,
     `_Esta mensagem não constitui aconselhamento jurídico definitivo._`,
   ].join("\n");
