@@ -57,6 +57,7 @@ import {
   yearOptions,
 } from "./lib/contract-date";
 import { notifyWebhook } from "./lib/webhook";
+import { clearFunnelSnapshot, loadFunnelSnapshot, saveFunnelSnapshot } from "./lib/funnel-persist";
 
 type View = "funnel" | "backoffice";
 
@@ -74,6 +75,62 @@ export default function App() {
   if (view === "backoffice") return <Backoffice onHome={() => (window.location.hash = "")} />;
   return <Funnel onBackoffice={() => (window.location.hash = "backoffice")} />;
 }
+
+
+function W1BrandFooter() {
+  return (
+    <footer
+      style={{
+        marginTop: "auto",
+        paddingTop: 28,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      <p
+        style={{
+          margin: 0,
+          fontSize: 10,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color: "var(--subtle, #9a948a)",
+          opacity: 0.85,
+        }}
+      >
+        © W1 Capital
+      </p>
+      <button
+        type="button"
+        onClick={() => {
+          try {
+            window.open("https://w1capital.com.br", "_blank", "noopener,noreferrer");
+          } catch {
+            /* ignore */
+          }
+        }}
+        style={{
+          border: "none",
+          background: "transparent",
+          padding: "2px 6px",
+          fontSize: 10,
+          lineHeight: 1.35,
+          color: "var(--subtle, #9a948a)",
+          opacity: 0.75,
+          cursor: "pointer",
+          fontFamily: "inherit",
+          maxWidth: 280,
+          textAlign: "center",
+        }}
+        title="W1 Capital"
+      >
+        Criado pela W1 Capital · Davi Alves Figueredo
+      </button>
+    </footer>
+  );
+}
+
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
@@ -203,19 +260,25 @@ function StepProgress({ step, total }: { step: number; total: number }) {
 }
 
 function Funnel({ onBackoffice: _onBackoffice }: { onBackoffice: () => void }) {
-  const [step, setStep] = useState(1);
-  const [lead, setLead] = useState<Lead>(createLeadDraft);
-  const [bacen, setBacen] = useState<BacenResult | null>(null);
+  const restored = typeof window !== "undefined" ? loadFunnelSnapshot() : null;
+  const [step, setStep] = useState(() => restored?.step ?? 1);
+  const [lead, setLead] = useState<Lead>(() => restored?.lead ?? createLeadDraft());
+  const [bacen, setBacen] = useState<BacenResult | null>(() => restored?.bacen ?? null);
   const [bacenLoading, setBacenLoading] = useState(false);
   const [bacenError, setBacenError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState(() => restored?.done ?? false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [qr, setQr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setSettings(loadSettings());
-  }, [step, done]);
+  }, []);
+
+  // Persistência: F5 volta de onde parou (até "Nova consulta")
+  useEffect(() => {
+    saveFunnelSnapshot({ step, done, lead, bacen });
+  }, [step, done, lead, bacen]);
 
   const pixPayload = useMemo(
     () =>
@@ -268,7 +331,30 @@ function Funnel({ onBackoffice: _onBackoffice }: { onBackoffice: () => void }) {
   }
 
   return (
-    <div style={{ maxWidth: 512, margin: "0 auto", minHeight: "100dvh", padding: "20px 16px 40px", display: "flex", flexDirection: "column" }}>
+    <div style={{ maxWidth: 512, margin: "0 auto", minHeight: "100dvh", padding: "20px 16px 40px", display: "flex", flexDirection: "column", position: "relative" }}>
+      {/* Marca d'água sutil W1 Capital */}
+      <div
+        aria-hidden
+        style={{
+          position: "fixed",
+          inset: 0,
+          pointerEvents: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: 0.035,
+          fontSize: "clamp(28px, 8vw, 56px)",
+          fontWeight: 700,
+          letterSpacing: "0.14em",
+          transform: "rotate(-24deg)",
+          color: "var(--forest, #1e3d32)",
+          zIndex: 0,
+          userSelect: "none",
+        }}
+      >
+        W1 CAPITAL
+      </div>
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", flex: 1 }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         {step > 1 && !done ? (
           <button
@@ -307,6 +393,7 @@ function Funnel({ onBackoffice: _onBackoffice }: { onBackoffice: () => void }) {
             lead={lead}
             specialistWhatsapp={settings.specialistWhatsapp}
             onReset={() => {
+              clearFunnelSnapshot();
               setLead(createLeadDraft());
               setBacen(null);
               setDone(false);
@@ -434,6 +521,9 @@ function Funnel({ onBackoffice: _onBackoffice }: { onBackoffice: () => void }) {
           </div>
         ) : null}
       </main>
+        <W1BrandFooter />
+      </div>{/* z-index content */}
+
 
       <footer style={{ marginTop: 40, textAlign: "center", fontSize: 11, color: "var(--subtle)", lineHeight: 1.6 }}>
         <p style={{ margin: "0 0 12px" }}>
