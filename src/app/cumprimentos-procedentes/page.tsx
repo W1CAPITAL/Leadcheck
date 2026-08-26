@@ -180,7 +180,8 @@ export default function CumprimentosProcedentesPage() {
   const [cases, setCases] = useState<LegalCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-  const [filtro, setFiltro] = useState<FiltroAtivo>("especial");
+  const [filtro, setFiltro] = useState<FiltroAtivo>("todos");
+  const [vista, setVista] = useState<"lista" | "kanban">("lista");
   const [limiar, setLimiar] = useState(() => {
     try {
       const v = localStorage.getItem("lexis_limiar_cumprimento");
@@ -457,6 +458,39 @@ export default function CumprimentosProcedentesPage() {
     const kpiEspecial = kpiFilaEspecial(cases, limiar);
     return { total: cases.length, pendentes, ativos, encerrados, procedentes, honorarios, conflitos, parceiro, honReceber, kpiEspecial };
   }, [cases, limiar]);
+
+  /** Lote 9 — colunas Kanban por estágio comercial (rankearCasoEspecial) */
+  const kanbanCols = useMemo(() => {
+    const cols: Record<string, { title: string; color: string; items: typeof cases }> = {
+      pronto_parceiro: { title: "★ Pronto parceiro", color: "border-violet-500/50 bg-violet-500/5", items: [] },
+      hon_receber: { title: "Honorários a receber", color: "border-emerald-500/50 bg-emerald-500/5", items: [] },
+      teor_ok: { title: "Teor OK", color: "border-blue-500/40 bg-blue-500/5", items: [] },
+      triagem: { title: "Triagem", color: "border-orange-500/40 bg-orange-500/5", items: [] },
+      em_cumprimento: { title: "Em cumprimento", color: "border-amber-500/40 bg-amber-500/5", items: [] },
+      bloqueado: { title: "Bloqueados", color: "border-slate-400/40 bg-slate-500/5", items: [] },
+    };
+    for (const c of filtered) {
+      try {
+        const r = rankearCasoEspecial(c, limiar);
+        const key =
+          r.estagio === "pronto_parceiro"
+            ? "pronto_parceiro"
+            : r.estagio === "hon_receber"
+              ? "hon_receber"
+              : r.estagio === "teor_ok"
+                ? "teor_ok"
+                : r.estagio === "em_cumprimento"
+                  ? "em_cumprimento"
+                  : r.estagio === "bloqueado"
+                    ? "bloqueado"
+                    : "triagem";
+        cols[key].items.push(c);
+      } catch {
+        cols.triagem.items.push(c);
+      }
+    }
+    return cols;
+  }, [filtered, limiar]);
 
 
   const copyProtocolo = async (proto: string) => {
@@ -1034,8 +1068,35 @@ export default function CumprimentosProcedentesPage() {
             </ScrollArea>
           </aside>
 
-          {/* Lista principal */}
+          {/* Lista principal · Lote 9 lista | kanban */}
           <section className="lg:col-span-9 flex flex-col min-h-0">
+            <div className="flex items-center justify-between gap-2 px-3 pt-2 pb-1 shrink-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                {filtered.length} na fila · vista
+              </p>
+              <div className="flex rounded-lg border border-border/60 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setVista("lista")}
+                  className={cn(
+                    "px-3 py-1.5 text-[10px] font-black uppercase tracking-wide",
+                    vista === "lista" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  Lista
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVista("kanban")}
+                  className={cn(
+                    "px-3 py-1.5 text-[10px] font-black uppercase tracking-wide",
+                    vista === "kanban" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  Kanban
+                </button>
+              </div>
+            </div>
             {loading ? (
               <div className="flex-1 flex items-center justify-center">
                 <Loader2 className="animate-spin text-muted-foreground" />
@@ -1046,6 +1107,58 @@ export default function CumprimentosProcedentesPage() {
                   ? "Nenhum caso com procedência ou cumprimento detectado. Use “Varrer só cumprimento” (DataJud+DJEN) ou o scanner em escopo Cumprimento. Depois Reclassificar se precisar."
                   : "Nenhum caso para este filtro."}
               </div>
+            ) : vista === "kanban" ? (
+              <ScrollArea className="flex-1">
+                <div className="p-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 min-w-0">
+                  {(["pronto_parceiro", "hon_receber", "teor_ok", "triagem", "em_cumprimento", "bloqueado"] as const).map((key) => {
+                    const col = kanbanCols[key];
+                    if (!col) return null;
+                    return (
+                      <div key={key} className={cn("rounded-xl border p-2 space-y-2 min-h-[120px]", col.color)}>
+                        <div className="flex items-center justify-between gap-1 px-1">
+                          <p className="text-[10px] font-black uppercase tracking-wide truncate">{col.title}</p>
+                          <Badge variant="outline" className="text-[9px] font-black tabular-nums shrink-0">
+                            {col.items.length}
+                          </Badge>
+                        </div>
+                        <div className="space-y-1.5 max-h-[55vh] overflow-y-auto pr-0.5">
+                          {col.items.length === 0 && (
+                            <p className="text-[10px] text-muted-foreground px-1 py-4 text-center">—</p>
+                          )}
+                          {col.items.map((c) => {
+                            let rkLabel = "";
+                            try {
+                              const rk = rankearCasoEspecial(c, limiar);
+                              rkLabel = rk.label;
+                            } catch {
+                              rkLabel = "";
+                            }
+                            return (
+                              <button
+                                key={c.protocolo || c.id}
+                                type="button"
+                                onClick={() => {
+                                  setExpandedProto(c.protocolo);
+                                  setVista("lista");
+                                  setFiltro("todos");
+                                  setQ(String(c.protocolo || ""));
+                                }}
+                                className="w-full text-left rounded-lg border border-border/50 bg-card px-2.5 py-2 hover:border-primary/40 transition-colors"
+                              >
+                                <p className="text-[11px] font-black uppercase truncate">{c.cliente}</p>
+                                <p className="text-[10px] font-mono tabular-nums text-muted-foreground truncate">{c.protocolo}</p>
+                                {rkLabel && (
+                                  <p className="text-[9px] font-semibold text-foreground/80 mt-0.5 truncate">{rkLabel}</p>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
             ) : (
               <ScrollArea className="flex-1">
                 <div className="p-3 space-y-2">
