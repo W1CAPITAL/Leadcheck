@@ -135,6 +135,34 @@ function temConflitoFlags(c: LegalCase): boolean {
   return pend && (em || enc);
 }
 
+/**
+ * Blob de teor para motor de honorários / crédito / dispositivo.
+ * MODULE-LEVEL — evita TDZ (Cannot access before initialization):
+ * filtered + stats useMemo chamam blobDoCaso antes de qualquer const no body do componente.
+ * Amplia fontes (DJEN textos, movimentos) para melhor detecção de sucumbência a receber.
+ */
+function blobDoCaso(c: LegalCase): string {
+  const d = ((c as any).dados && typeof (c as any).dados === "object" ? (c as any).dados : {}) as any;
+  return [
+    (c as any).evento_resumo,
+    c.datajud_ultimo_nome,
+    (c as any).datajud_ultimo_nome,
+    (c as any).procedente_motivo,
+    (c as any).cumprimento_sentenca_motivo,
+    d.evento_resumo,
+    d.djen_ultimo_resumo,
+    (c as any).djen_ultimo_resumo,
+    d.datajud_ultimo_nome,
+    d.procedente_motivo,
+    ...(Array.isArray(d.djen_textos) ? d.djen_textos.slice(0, 12) : []),
+    ...(Array.isArray(d.movimentos)
+      ? d.movimentos.slice(0, 40).map((m: any) => `${m.nome || ""} ${m.complemento || ""}`)
+      : []),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export default function CumprimentosProcedentesPage() {
   const { toast } = useToast();
   const {
@@ -285,7 +313,7 @@ export default function CumprimentosProcedentesPage() {
 
   const kpiExecutivo = useMemo(() => computeKpiExecutivo((cases || []) as any), [cases]);
 
-const filtered = useMemo(() => {
+  const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     let base = [...cases];
     if (term) {
@@ -324,7 +352,6 @@ const filtered = useMemo(() => {
         const sb = Number((b as any).oportunidade_score ?? (b as any).detalhes_execucao?.oportunidade_instaurar?.score ?? 0);
         return sb - sa;
       });
-    
     } else if (filtro === "hon_receber") {
       base = base.filter((c) => {
         const blob = blobDoCaso(c);
@@ -443,20 +470,7 @@ const filtered = useMemo(() => {
   };
 
 
-  const blobDoCaso = (c: LegalCase) => {
-    const d = ((c as any).dados && typeof (c as any).dados === "object" ? (c as any).dados : {}) as any;
-    return [
-      (c as any).evento_resumo,
-      c.datajud_ultimo_nome,
-      (c as any).procedente_motivo,
-      (c as any).cumprimento_sentenca_motivo,
-      d.evento_resumo,
-      d.djen_ultimo_resumo,
-      d.datajud_ultimo_nome,
-    ]
-      .filter(Boolean)
-      .join(" \n ");
-  };
+  // blobDoCaso está no escopo de módulo (acima do componente) — não redefinir aqui
 
   const handleAnexoContrato = async (protocolo: string, file: File | null) => {
     if (!file) return;
@@ -1107,6 +1121,47 @@ const filtered = useMemo(() => {
                                 Procedente
                               </Badge>
                             )}
+                            {(() => {
+                              // Lote 8.1 — estágio comercial (honorários a receber)
+                              try {
+                                const rk = rankearCasoEspecial(c, limiar);
+                                if (
+                                  rk.estagio === "pronto_parceiro" ||
+                                  rk.estagio === "hon_receber" ||
+                                  rk.honorariosNivel === "forte" ||
+                                  rk.honorariosNivel === "medio"
+                                ) {
+                                  return (
+                                    <Badge
+                                      className={
+                                        rk.estagio === "pronto_parceiro"
+                                          ? "bg-violet-700 text-[8px] font-black uppercase"
+                                          : rk.honorariosNivel === "forte"
+                                            ? "bg-emerald-700 text-[8px] font-black uppercase"
+                                            : "bg-emerald-600/90 text-[8px] font-black uppercase"
+                                      }
+                                      title={rk.motivos?.slice(0, 3).join(" · ") || rk.label}
+                                    >
+                                      {rk.estagio === "pronto_parceiro"
+                                        ? "★ Pronto parceiro"
+                                        : rk.honorariosNivel === "forte"
+                                          ? "Hon. a receber · forte"
+                                          : "Hon. a receber · médio"}
+                                    </Badge>
+                                  );
+                                }
+                                if (rk.estagio === "bloqueado" || rk.honorariosNivel === "bloqueado") {
+                                  return (
+                                    <Badge className="bg-slate-600 text-[8px] font-black uppercase" title="Sucumbência recíproca / a cargo do autor">
+                                      Hon. bloqueados
+                                    </Badge>
+                                  );
+                                }
+                              } catch {
+                                /* ignore */
+                              }
+                              return null;
+                            })()}
                             {(() => {
                               const op = oportunidadeOf(c);
                               if (!op || op.score <= 0) return null;
