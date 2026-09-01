@@ -58,6 +58,8 @@ import {
 } from "./lib/contract-date";
 import { notifyWebhook } from "./lib/webhook";
 import { clearFunnelSnapshot, loadFunnelSnapshot, saveFunnelSnapshot } from "./lib/funnel-persist";
+import { ScannerPanel } from "./lib/ScannerPanel";
+import { bridgeFunnelLeadToScanner } from "./lib/funnel-bridge";
 
 type View = "funnel" | "backoffice";
 
@@ -1287,6 +1289,7 @@ function Backoffice({ onHome }: { onHome: () => void }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [filter, setFilter] = useState<"todos" | "quitacao" | "prestamista" | "reduzir" | "pagos">("todos");
   const [copied, setCopied] = useState<string | null>(null);
+  const [boTab, setBoTab] = useState<"operacao" | "scanner">("operacao");
 
   useEffect(() => {
     let cancelled = false;
@@ -1429,6 +1432,44 @@ function Backoffice({ onHome }: { onHome: () => void }) {
         </div>
       </header>
 
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+        {(
+          [
+            ["operacao", "Operação (funil)"],
+            ["scanner", "Scanner de leads"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setBoTab(id)}
+            style={{
+              height: 40,
+              borderRadius: 999,
+              border: "none",
+              padding: "0 16px",
+              fontSize: 13,
+              fontWeight: 600,
+              fontFamily: "inherit",
+              cursor: "pointer",
+              background: boTab === id ? "var(--forest)" : "var(--surface)",
+              color: boTab === id ? "var(--forest-fg)" : "var(--muted)",
+              boxShadow: boTab === id ? "none" : "var(--shadow)",
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {boTab === "scanner" ? (
+        <section style={{ background: "var(--surface)", borderRadius: "var(--radius-xl)", padding: 20, boxShadow: "var(--shadow)", marginBottom: 32 }}>
+          <ScannerPanel />
+        </section>
+      ) : null}
+
+      {boTab === "operacao" ? (
+      <>
       <section style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 32 }}>
         {[
           ["Leads", String(leads.length)],
@@ -1699,6 +1740,8 @@ function Backoffice({ onHome }: { onHome: () => void }) {
           </div>
         ))}
       </section>
+      </>
+      ) : null}
     </div>
   );
 }

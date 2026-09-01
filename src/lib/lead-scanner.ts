@@ -116,29 +116,27 @@ export async function enrichLeadContact(
     return lead;
   }
 
-  if (!opts.apiKey || !opts.endpoint) {
-    lead.enrichment = "pendente";
-    lead.enrichmentNote = "Configure API Key do provedor em Configurações (BigDataCorp/APIBrasil)";
-    lead.updatedAt = new Date().toISOString();
-    upsertScannedLead(lead);
-    return lead;
-  }
-
+  // Sem key local: tenta /api/enrich no server (env Vercel/Cloudflare)
   lead.enrichment = "pendente";
   lead.updatedAt = new Date().toISOString();
   upsertScannedLead(lead);
 
   try {
-    const res = await fetch(opts.endpoint, {
+    // Preferir proxy server-side (/api/enrich) para não expor keys no browser
+    const endpoint = opts.endpoint || "/api/enrich";
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${opts.apiKey}`,
+        "x-leadcheck-token": opts.apiKey || "w1-fase1-2026",
+        ...(opts.endpoint && opts.apiKey
+          ? { Authorization: `Bearer ${opts.apiKey}` }
+          : {}),
       },
       body: JSON.stringify({
         cpf: lead.cpf,
         provider: opts.provider || "bigdatacorp",
-        // Apenas validação / associação com base legal documentada no contrato do provedor
+        token: opts.apiKey || "w1-fase1-2026",
         service: "carriers_phone_validation",
       }),
     });

@@ -85,10 +85,11 @@ export function ScannerPanel() {
   }
 
   async function onEnrich(id: string) {
-    setStatus("Enriquecendo (requer API key + consentimento)…");
+    setStatus("Enriquecendo (consentimento obrigatório · proxy /api/enrich)…");
     await enrichLeadContact(id, {
       provider: "bigdatacorp",
-      // preencher em produção via settings
+      endpoint: "/api/enrich",
+      apiKey: cfg.token || "w1-fase1-2026",
     });
     refresh();
     setStatus("Enriquecimento processado (veja nota do lead)");
@@ -214,12 +215,17 @@ export function ScannerPanel() {
         </div>
       </section>
 
-      <section style={{ fontSize: 12, opacity: 0.85 }}>
-        <strong>Webhook externo (n8n / Meta):</strong> POST{" "}
-        <code>/api/leads-ingest</code> com header{" "}
-        <code>x-leadcheck-token</code> e body JSON (nome, whatsapp, consentAt,
-        source). O servidor pode repassar direto à planilha se{" "}
-        <code>LEADCHECK_SHEETS_WEBHOOK</code> estiver no Vercel.
+      <section style={{ fontSize: 12, opacity: 0.85, lineHeight: 1.5 }}>
+        <strong>Como gerar leads de verdade (LGPD):</strong>
+        <ol style={{ margin: "8px 0", paddingLeft: 18 }}>
+          <li>Funil do site (cliente preenche WhatsApp) — automático ao pagar</li>
+          <li>Meta Lead Ads → n8n → POST <code>/api/leads-ingest</code> com <code>consentAt</code></li>
+          <li>Parceiro CaaS / formulário com checkbox de consentimento</li>
+        </ol>
+        <strong>Não suportado:</strong> scraping de compradores de veículo + WhatsApp sem autorização.
+        <br />
+        Header <code>x-leadcheck-token</code> · planilha via Apps Script (mesmo padrão SyncCRM / Offline Lexis).
+        No Cloudflare, use o Worker <code>workers/leads-ingest-worker.js</code>.
       </section>
     </div>
   );
