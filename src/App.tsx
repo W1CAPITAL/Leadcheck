@@ -60,6 +60,7 @@ import { notifyWebhook } from "./lib/webhook";
 import { clearFunnelSnapshot, loadFunnelSnapshot, saveFunnelSnapshot } from "./lib/funnel-persist";
 import { ScannerPanel } from "./lib/ScannerPanel";
 import { bridgeFunnelLeadToScanner } from "./lib/funnel-bridge";
+import { LeadGeneratorPanel } from "./lib/LeadGeneratorPanel";
 
 type View = "funnel" | "backoffice";
 
@@ -1289,7 +1290,7 @@ function Backoffice({ onHome }: { onHome: () => void }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [filter, setFilter] = useState<"todos" | "quitacao" | "prestamista" | "reduzir" | "pagos">("todos");
   const [copied, setCopied] = useState<string | null>(null);
-  const [boTab, setBoTab] = useState<"operacao" | "scanner">("operacao");
+  const [boTab, setBoTab] = useState<"operacao" | "scanner" | "gerador">("operacao");
 
   useEffect(() => {
     let cancelled = false;
@@ -1437,6 +1438,7 @@ function Backoffice({ onHome }: { onHome: () => void }) {
           [
             ["operacao", "Operação (funil)"],
             ["scanner", "Scanner de leads"],
+            ["gerador", "Lead Generator"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -1465,6 +1467,12 @@ function Backoffice({ onHome }: { onHome: () => void }) {
       {boTab === "scanner" ? (
         <section style={{ background: "var(--surface)", borderRadius: "var(--radius-xl)", padding: 20, boxShadow: "var(--shadow)", marginBottom: 32 }}>
           <ScannerPanel />
+        </section>
+      ) : null}
+
+      {boTab === "gerador" ? (
+        <section style={{ marginBottom: 32 }}>
+          <LeadGeneratorPanel />
         </section>
       ) : null}
 

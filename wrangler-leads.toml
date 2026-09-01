@@ -1,0 +1,8 @@
+name = "leadcheck-ingest"
+main = "leads-ingest-worker.js"
+compatibility_date = "2024-11-01"
+
+# Secrets (não versionar):
+# wrangler secret put LEADCHECK_INGEST_TOKEN
+# wrangler secret put LEADCHECK_SHEETS_WEBHOOK
+# wrangler secret put LEADCHECK_SHEETS_TOKEN
