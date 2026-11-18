@@ -2,6 +2,16 @@
 
 Funil de captura com **análise automática de revisional** após o contrato (Bacen + parcela + anexo). O cliente não escolhe mais “o que resolver primeiro” — o app apresenta oportunidades e o pré-laudo.
 
+<!-- W1_DISTRIBUICAO_INICIO -->
+## Distribuição e acesso
+
+O Leadcheck é uma aplicação web destinada à captação e análise inicial de propostas. Não há executável Windows publicado. A [Central de Apps W1](https://github.com/W1CAPITAL/Central-de-Apps) reúne os aplicativos desktop do ecossistema; o Leadcheck permanece implantado separadamente.
+
+[Consultar versões e downloads](https://github.com/W1CAPITAL/Central-de-Apps/releases) · [Catálogo completo W1](https://github.com/W1CAPITAL/Central-de-Apps/blob/main/docs/ECOSSISTEMA-W1.md)
+
+Os arquivos da série `preview-v0.1.48` são versões de teste, não instaladores oficiais assinados para atualização automática.
+<!-- W1_DISTRIBUICAO_FIM -->
+
 # Parcela Justa
 
 Funil de captação (tripwire) para revisão de juros e quitação de financiamento de veículos.
